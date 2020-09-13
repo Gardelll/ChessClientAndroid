@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "top.gardel.chess.proto";
+option java_outer_classname = "ChessProto";
+
+package top.gardel.chess.proto;
+
+import "google/protobuf/any.proto";
+
+message Response {
+  string error = 1;
+  reserved 2 to 4;
+  google.protobuf.Any body = 5;
+}
+
+message Request {
+  reserved 1 to 4;
+  google.protobuf.Any body = 5;
+}
+
+message AuthInfo {
+  string uuid = 1;
+}
+
+message CompetitionOperation {
+  uint32 id = 1; // 对局号码
+  Operation operation = 2;
+  enum Operation {
+    Create = 0;
+    Join = 1;
+    Leave = 2;
+    Put = 3;
+    Reset = 4;
+  }
+  PutChess pos = 3;
+  AuthInfo playerB = 4;
+  AuthInfo playerA = 5;
+}
+
+message PutChess {
+  bool myself = 1;
+  uint32 x = 2;
+  uint32 y = 3;
+}
+
+message CompetitionFinish {
+  string winner = 1;
+}
+
+message GetStatistics {
+  bool myself = 1;
+}
+
+message Sync {
+}
+
+message Statistics {
+  uint32 winTime = 1;
+  uint32 loseTime = 2;
+  bool myself = 3;
+}
