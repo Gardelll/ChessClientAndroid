@@ -8,17 +8,20 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import java.util.Arrays;
+
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Arrays;
 
 public class ChessBoard extends View {
     private static final String TAG = "ChessBoard";
     private final Chess[][] boardData;
-    private Paint paint;
-    private float defaultStrokeWidth = 5.0f;
-    private Path path;
+    private final Paint paint;
+    private final float defaultStrokeWidth = 5.0f;
+    private final Path path;
     private OnClickChessGridListener onClickChessGridListener;
 
     public ChessBoard(Context context) {
