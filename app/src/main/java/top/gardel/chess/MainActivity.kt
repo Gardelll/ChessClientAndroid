@@ -1,26 +1,32 @@
 package top.gardel.chess
 
 import android.content.*
+import android.net.Uri
 import android.os.Bundle
 import android.os.IBinder
 import android.text.InputType
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.core.text.isDigitsOnly
 import androidx.core.widget.addTextChangedListener
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 import top.gardel.chess.data.Competition
 import top.gardel.chess.data.Player
 import top.gardel.chess.proto.*
 import top.gardel.chess.service.ChessService
 import top.gardel.chess.view.ChessBoard
+import java.io.File
+import java.net.URL
+import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -176,7 +182,7 @@ class MainActivity : AppCompatActivity() {
         if (!mBound) {
             // Bind to Service
             Intent(this, ChessService::class.java).also { intent ->
-                intent.putExtra("host", "coding.gardel.top")
+                intent.putExtra("host", "api.sunxinao.cn")
                 intent.putExtra("port", 5544)
                 startService(intent)
                 bindService(intent, connection, Context.BIND_AUTO_CREATE)
@@ -222,6 +228,7 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "重置棋盘")
                     chessBoard.reset()
                     resetDialog.dismiss()
+                    chessService.requestStatistic()
                 }
                 else -> {
                 }
@@ -278,6 +285,85 @@ class MainActivity : AppCompatActivity() {
                 resetDialog.show()
             R.id.action_competition ->
                 alertDialog.show()
+            R.id.action_update -> {
+                item.isEnabled = false
+                Toast.makeText(applicationContext, "请稍后", Toast.LENGTH_SHORT).show()
+                GlobalScope.launch(Dispatchers.IO) {
+                    try {
+                        URL("https://ci.gardel.top/job/chess-android/lastSuccessfulBuild/api/json")
+                            .openStream()
+                            .use { updateStream ->
+                                val json = String(updateStream.readBytes())
+                                val jsonObj = JSONObject(json)
+                                Log.i(TAG, "update: $json")
+                                val number = jsonObj.getLong("number")
+                                val timestamp = jsonObj.getLong("timestamp")
+                                val displayName = jsonObj.getString("displayName")
+                                val description = jsonObj.getString("description")
+                                val artifacts = jsonObj.getJSONArray("artifacts")
+                                val changeItems =
+                                    jsonObj.getJSONObject("changeSet").getJSONArray("items")
+                                val url = jsonObj.getString("url")
+                                if (BuildConfig.VERSION_CODE < number && artifacts.length() > 0) {
+                                    val firstItem = artifacts.getJSONObject(0)
+                                    val downloadUrl =
+                                        "${url}artifact/${firstItem.getString("relativePath")}"
+                                    val summaryBuilder = StringBuilder()
+                                    if (!description.isNullOrBlank())
+                                        summaryBuilder.append(description)
+                                            .append("\n")
+                                    for (i in 0 until changeItems.length()) {
+                                        val changeItem = changeItems.getJSONObject(i)
+                                        Log.i(TAG, "changeItem($i): $changeItem")
+                                        summaryBuilder.append(changeItem.getString("msg"))
+                                            .append('\n')
+                                    }
+                                    GlobalScope.launch(Dispatchers.Main) {
+                                        AlertDialog.Builder(this@MainActivity)
+                                            .setTitle("发现更新")
+                                            .setMessage(
+                                                "新版本: ${displayName}\n$summaryBuilder\n发布时间: ${
+                                                    SimpleDateFormat(
+                                                        "yyyy年MM月dd日 HH:mm:ss",
+                                                        Locale.CHINA
+                                                    ).format(Date(timestamp))
+                                                }"
+                                            )
+                                            .setCancelable(false)
+                                            .setPositiveButton("下载") { dialog, _ ->
+                                                doUpgrade(downloadUrl)
+                                                item.isEnabled = true
+                                                dialog.cancel()
+                                            }
+                                            .setNegativeButton("下次一定") { dialog, _ ->
+                                                dialog.cancel()
+                                                item.isEnabled = true
+                                            }
+                                            .show()
+                                    }
+                                } else {
+                                    GlobalScope.launch(Dispatchers.Main) {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "没有更新",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        item.isEnabled = true
+                                    }
+                                }
+                            }
+                    } catch (e: Exception) {
+                        GlobalScope.launch(Dispatchers.Main) {
+                            Toast.makeText(
+                                applicationContext,
+                                "更新失败: ${e.localizedMessage}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            item.isEnabled = true
+                        }
+                    }
+                }
+            }
         }
         return false
     }
@@ -299,6 +385,62 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
         unbindService(connection)
         mBound = false
+    }
+
+    private fun doUpgrade(url: String) {
+        Log.i(TAG, "doUpgrade: $url")
+        val dialog = AlertDialog.Builder(this@MainActivity)
+            .setTitle("请稍后")
+            .setView(ProgressBar(this@MainActivity).apply {
+                isIndeterminate = true
+                setTheme(android.R.style.Widget_ProgressBar_Horizontal)
+            })
+            .setPositiveButton("隐藏") { dialogInterface: DialogInterface, _: Int ->
+                dialogInterface.dismiss()
+            }
+            .setCancelable(false)
+            .show()
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                URL(url).openStream()
+                    .use { stream ->
+                        val parent = File(cacheDir.absolutePath + "/update-cache")
+                        if (!parent.exists()) parent.mkdirs()
+                        val updateFile = File.createTempFile("update-", ".apk", parent)
+                        updateFile.outputStream().use { tmpFile ->
+                            stream.copyTo(tmpFile)
+                        }
+                        Log.d(TAG, updateFile.absolutePath ?: "安装包路径错误")
+                        GlobalScope.launch(Dispatchers.Main) {
+                            updateFile.also { file ->
+                                doUpgradeInstall(
+                                    FileProvider.getUriForFile(
+                                        this@MainActivity,
+                                        "$packageName.fileprovider",
+                                        file
+                                    )
+                                )
+                            }
+                        }
+                    }
+            } catch (e: Exception) {
+                GlobalScope.launch(Dispatchers.Main) {
+                    Toast.makeText(
+                        applicationContext,
+                        "更新失败: ${e.localizedMessage}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    dialog.dismiss()
+                }
+            }
+        }
+    }
+
+    private fun doUpgradeInstall(apk: Uri) {
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        intent.setDataAndType(apk, "application/vnd.android.package-archive")
+        startActivity(intent)
     }
 
     companion object {

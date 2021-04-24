@@ -34,7 +34,7 @@ class ChessService : Service() {
     private lateinit var host: String
     private var port: Int = -1
 
-    override fun onBind(intent: Intent): IBinder? {
+    override fun onBind(intent: Intent): IBinder {
         return binder
     }
 
@@ -64,7 +64,25 @@ class ChessService : Service() {
                             pipeline.addLast(ProtobufVarint32LengthFieldPrepender())
                             pipeline.addLast(ProtobufEncoder())
                             pipeline.addLast(object : SimpleChannelInboundHandler<Response>() {
-                                override fun channelRead0(
+                                override fun channelReadComplete(ctx: ChannelHandlerContext) {
+                                    ctx.flush()
+                                    super.channelReadComplete(ctx)
+                                }
+
+                                override fun exceptionCaught(
+                                    ctx: ChannelHandlerContext,
+                                    cause: Throwable
+                                ) {
+                                    cause.printStackTrace()
+                                    val errMsg = cause.localizedMessage
+                                    if (ctx.channel().isActive) ctx.writeAndFlush(
+                                        Response.newBuilder()
+                                            .setError(errMsg ?: cause.javaClass.simpleName)
+                                            .build()
+                                    )
+                                }
+
+                                override fun messageReceived(
                                     ctx: ChannelHandlerContext,
                                     msg: Response
                                 ) {
@@ -95,24 +113,6 @@ class ChessService : Service() {
                                     if (handler != null) uiHandler.post {
                                         handler.invoke(socketChannel, message)
                                     }
-                                }
-
-                                override fun channelReadComplete(ctx: ChannelHandlerContext) {
-                                    ctx.flush()
-                                    super.channelReadComplete(ctx)
-                                }
-
-                                override fun exceptionCaught(
-                                    ctx: ChannelHandlerContext,
-                                    cause: Throwable
-                                ) {
-                                    cause.printStackTrace()
-                                    val errMsg = cause.localizedMessage
-                                    if (ctx.channel().isActive) ctx.writeAndFlush(
-                                        Response.newBuilder()
-                                            .setError(errMsg ?: cause.javaClass.simpleName)
-                                            .build()
-                                    )
                                 }
                             })
                         }

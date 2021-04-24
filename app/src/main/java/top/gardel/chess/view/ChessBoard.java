@@ -8,13 +8,10 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import org.jetbrains.annotations.NotNull;
-
 import java.util.Arrays;
+import org.jetbrains.annotations.NotNull;
 
 public class ChessBoard extends View {
     private static final String TAG = "ChessBoard";
@@ -39,30 +36,28 @@ public class ChessBoard extends View {
         paint.setStrokeWidth(defaultStrokeWidth);
         path = new Path();
         onClickChessGridListener = null;
-        setOnTouchListener(new OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                v.performClick();
-                if (event.getAction() == MotionEvent.ACTION_DOWN && onClickChessGridListener != null) {
-                    float x = event.getX();
-                    float y = event.getY();
-                    Log.d(TAG, String.format("click ... x: %f, y: %f", x, y));
-                    int left = v.getLeft();
-                    int right = v.getRight();
-                    int top = v.getTop();
-                    int bottom = v.getBottom();
-                    int w = Math.abs(right - left);
-                    int h = Math.abs(bottom - top);
-                    int l = (int) (Math.min(w, h) - defaultStrokeWidth * 10);
-                    // fixme 点击右边缘算为下一格
-                    Log.d(TAG, String.format("left: %d, top: %d, bottom: %d, right: %s, width: %s, height: %s", left, top, bottom, right, w, h));
-                    int grid = l / boardData.length;
-                    int posX = (int) (x / grid) + 1;
-                    int posY = (int) (y / grid) + 1;
-                    return onClickChessGridListener.onClick(ChessBoard.this, posX, posY);
-                }
-                return false;
+        setOnTouchListener((v, event) -> {
+            v.performClick();
+            if (event.getAction() == MotionEvent.ACTION_DOWN && onClickChessGridListener != null) {
+                float x = event.getX();
+                float y = event.getY();
+                Log.d(TAG, String.format("click ... x: %f, y: %f", x, y));
+                int left = v.getLeft();
+                int right = v.getRight();
+                int top = v.getTop();
+                int bottom = v.getBottom();
+                x -= left;
+                y -= top;
+                int w = Math.abs(right - left);
+                int h = Math.abs(bottom - top);
+                int l = (int) (Math.min(w, h) - defaultStrokeWidth * 10);
+                Log.d(TAG, String.format("left: %d, top: %d, bottom: %d, right: %s, width: %s, height: %s", left, top, bottom, right, w, h));
+                int grid = l / boardData.length;
+                int posX = (int) (x / grid) + 1;
+                int posY = (int) (y / grid) + 1;
+                return onClickChessGridListener.onClick(ChessBoard.this, posX, posY);
             }
+            return false;
         });
     }
 
