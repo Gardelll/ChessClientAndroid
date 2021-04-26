@@ -68,7 +68,8 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
 
     // https://mvnrepository.com/artifact/io.netty/netty-all
-    implementation 'io.netty:netty-all:5.0.0.Alpha2'
+    //noinspection GradleDependency
+    implementation 'io.netty:netty-all:4.1.63.Final'
 
     // ProtocolBuffer数据格式解析库
     implementation "com.google.protobuf:protobuf-javalite:$protobufVersion"
@@ -84,7 +85,7 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:$lifecycle_version"
     implementation "androidx.lifecycle:lifecycle-common-java8:$lifecycle_version"
 
-    testImplementation 'junit:junit:4.13.1'
+    testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 }

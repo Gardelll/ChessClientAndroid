@@ -82,7 +82,7 @@ class ChessService : Service() {
                                     )
                                 }
 
-                                override fun messageReceived(
+                                override fun channelRead0(
                                     ctx: ChannelHandlerContext,
                                     msg: Response
                                 ) {
