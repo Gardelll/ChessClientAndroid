@@ -309,7 +309,7 @@ class MainActivity : AppCompatActivity() {
                                     val downloadUrl =
                                         "${url}artifact/${firstItem.getString("relativePath")}"
                                     val summaryBuilder = StringBuilder()
-                                    if (!description.isNullOrBlank())
+                                    if (!description.isNullOrBlank() && description != "null")
                                         summaryBuilder.append(description)
                                             .append("\n")
                                     for (i in 0 until changeItems.length()) {
@@ -331,7 +331,14 @@ class MainActivity : AppCompatActivity() {
                                             )
                                             .setCancelable(false)
                                             .setPositiveButton("下载") { dialog, _ ->
-                                                doUpgrade(downloadUrl)
+                                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                                                    doUpgrade(downloadUrl)
+                                                } else {
+                                                    val intent = Intent(Intent.ACTION_VIEW)
+                                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    intent.data = Uri.parse(downloadUrl)
+                                                    startActivity(intent)
+                                                }
                                                 item.isEnabled = true
                                                 dialog.cancel()
                                             }

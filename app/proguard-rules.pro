@@ -11,11 +11,17 @@
 }
 
 # netty
+-keepattributes Signature,InnerClasses
+
 -keepclassmembernames class io.netty.buffer.AbstractByteBufAllocator {
     *;
 }
 
 -keepclassmembernames class io.netty.buffer.AdvancedLeakAwareByteBuf {
+    *;
+}
+
+-keepclassmembers class io.netty.util.ReferenceCountUtil {
     *;
 }
 
